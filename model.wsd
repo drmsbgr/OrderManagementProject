@@ -1,0 +1,95 @@
+@startuml model
+    
+    package Core
+    {
+        class BaseEntity {
+            <<abstract>>
+            +int Id
+            +DateTime CreatedDate
+        }
+
+        class Customer {
+            +string FirstName
+            +string LastName
+            +string Email
+        }
+
+        class Order {
+            +DateTime OrderDate
+            +decimal TotalPrice
+            +int CustomerId
+            +CompleteOrder() void
+        }
+
+        class Product {
+            +string Name
+            +decimal Price
+            +int StockQuantity
+            +DecreaseStock(int quantity) void
+        }
+    }
+
+    BaseEntity <|-- Customer
+    BaseEntity <|-- Order
+    BaseEntity <|-- Product
+    Customer "1" *-- "*" Order : places
+    Order "*" o-- "*" Product : contains
+
+    'Data Access Layer (EF Core & Repository)
+    package DAL
+    {
+        class IRepository~T~ {
+            <<interface>>
+            +GetByIdAsync(int id) Task~T~
+            +GetAllAsync() Task~IEnumerable~T~~
+            +AddAsync(T entity) Task
+            +Update(T entity) void
+        }
+
+        class IOrderRepository {
+            <<interface>>
+            +GetOrdersWithDetailsAsync(int customerId) Task~IEnumerable~Order~~
+        }
+
+        class OrderRepository {
+            -AppDbContext _context
+            +GetOrdersWithDetailsAsync(int customerId) Task~IEnumerable~Order~~
+        }
+
+        class AppDbContext {
+            +DbSet~Customer~ Customers
+            +DbSet~Order~ Orders
+            +DbSet~Product~ Products
+            #OnModelCreating(ModelBuilder builder) void
+            +SaveChangesAsync() Task~int~
+        }
+    }
+
+    IRepository <|-- IOrderRepository
+    IOrderRepository <|.. OrderRepository
+    OrderRepository --> AppDbContext : uses
+
+   ' Business Layer (Servisler)
+
+   package Business
+   {
+        class IOrderService {
+            <<interface>>
+            +CreateOrderAsync(int customerId, List~int~ productIds) Task~Result~
+            +GetCustomerOrdersAsync(int customerId) Task~IEnumerable~OrderDto~~
+        }
+
+        class OrderManager {
+            -IOrderRepository _orderRepository
+            -IProductRepository _productRepository
+            -IUnitOfWork _unitOfWork
+            +CreateOrderAsync(int customerId, List~int~ productIds) Task~Result~
+            +GetCustomerOrdersAsync(int customerId) Task~IEnumerable~OrderDto~~
+        }
+   }
+
+    IOrderService <|.. OrderManager
+    OrderManager --> IOrderRepository : injects
+    OrderManager --> IProductRepository : injects
+
+@enduml
